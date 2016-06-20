@@ -1,0 +1,489 @@
+import com.rameses.annotations.*;
+import com.rameses.util.*;
+import java.rmi.server.*;
+import com.rameses.services.extended.*;
+
+public class TagabukidDTSService  {
+
+	@Service('DateService')
+	def dtSvc 
+
+	@Service("SequenceService")
+	def seqSvc;
+
+	@ActiveDB(value='dts', em='tagabukid_etracs')
+	def em
+
+	@ActiveDB(value='userorg', em='tagabukid_etracs')
+	def emuserorg
+
+	@ActiveDB(value='document_task', em='tagabukid_etracs')
+	def taskem
+
+	@ActiveDB(value='documenttype', em='tagabukid_etracs')
+	def emdoctype
+
+	@Service("TagaBukidRedflagService")
+	def redflagSvc;
+
+	@Env
+	def env;
+
+	@ProxyMethod
+	public def initNew(o) {
+		def entity= [:]
+		entity.objid ="DTS"+ new UID();
+		entity.dininventoryid = null;
+		entity.documenttype = [:]
+		entity.recordlog = [:]
+		entity.state = 'IDLE'
+		entity.docstate = 'IDLE'
+		entity.child = []
+		entity.recordlog.datecreated = dtSvc.serverDate
+		entity.recordlog.createdbyuserid = env.USERID
+		entity.recordlog.createdbyuser = env.FULLNAME
+		entity.recordlog.dateoflastupdate =  dtSvc.serverDate
+		entity.recordlog.lastupdatedbyuserid = env.USERID
+		entity.recordlog.lastupdatedbyuser = env.FULLNAME
+		return entity
+	}
+
+    @ProxyMethod
+    public def create(def o){
+		if(!o.docstate) o.docstate = 'IDLE';
+
+		if(!o.din) {o.din = createdin(o)}
+		
+		o.documenttypeid =  o.documenttype.objid
+		em.create(o);
+		def task = inittask(o);
+		if(o.documenttype.haschild){
+			o.child.each{
+				em.updateparent([parentid:o.objid,objid:it.objid])
+				taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'attached',message:'Attached to document no. ' + o.din]);
+			}
+		}
+		return o;
+	
+		
+    }
+
+	public def createdin(def o) {
+		def appcode = "DTS"
+		def yr = dtSvc.serverYear;
+		def mnth = dtSvc.serverMonth;
+		def smon = ( mnth < 10 ) ? "0"+mnth : mnth+"";
+		def prefix = appcode+yr+smon;
+		return prefix+seqSvc.getNextFormattedSeries(prefix);
+	}
+
+	@ProxyMethod
+	public def verifydin(din) {
+		try{
+			def prefix = (din.substring(0,5)=="71007" ? din.substring(6,15) : din.substring(0,9)) 
+			def sequence = (din.substring(0,5)=="71007" ? din.substring(15) : din.substring(9)) 
+
+			din = prefix + sequence
+
+			def filter = ''' d.din = $P{barcodeid} ''';
+			def doc = em.findDocumentbyBarcode([barcodeid:din,filter:filter])
+			if (doc){
+				throw new Exception("DIN :" + din + " is already referenced to a document");
+			}
+			
+			def inv = em.findDocumentInv([prefix:prefix,sequence:sequence,orgid:getUserOrg(env.USERID).organizationid])
+			if(!inv){
+				throw new Exception("Invalid DIN");
+			}
+
+
+			return [din:din,inv:inv]
+		}catch(e){
+			throw new Exception("Invalid DIN");
+		}
+	}
+
+
+	public def inittask(o){
+		def inittask = [
+			objid          : 'TSK' + new java.rmi.server.UID(),
+			refid          : o.objid,
+			parentprocessid: null,
+			lft			   : 1,
+			rgt			   : 2,
+			state          : 'idle',
+			startdate      : dtSvc.serverDate,
+			assignee_objid : env.USERID,
+			assignee_name  : env.FULLNAME,
+			assignee_title : env.JOBTITLE,
+			actor_objid    : env.USERID,
+			actor_name     : env.FULLNAME,
+			actor_title    : env.JOBTITLE,
+			message        : 'DOCUMENT WITH DIN ' + o.din + ' WAS INITIALIZED BY ' + env.FULLNAME,
+		]
+		taskem.save(inittask)
+		def org = getUserOrg(env.USERID)
+		def newtaskorg = [
+			taskid:inittask.objid,
+			orgid:org.organizationid,
+			macaddress:env.MACADDRESS,
+			name:org.name,
+			address:org.address,
+		]
+		taskem.save(newtaskorg,'document_task_org')
+		return inittask
+	}
+
+	@ProxyMethod
+    public def lookupDIN(params){
+    	beforeList(params)
+    	params.filter = ''
+    	params.actorobjid = env.USERID
+    	params.userorgid = getUserOrg(env.USERID).organizationid
+    
+    	if (params.mode.matches('send|outgoing|archive')){
+	    	params.filter = ''' (d.title LIKE $P{searchtext} OR d.din LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing') AND dt.actor_objid = $P{actorobjid} AND dt.enddate IS NULL'''
+		}else if (params.mode =='receive'){
+	    	params.filter = ''' (d.title LIKE $P{searchtext} OR d.din LIKE $P{searchtext}) AND dt.state IN ('enroute') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+		}else if (params.mode =='child'){
+	    	params.filter = ''' (d.title LIKE $P{searchtext} OR d.din LIKE $P{searchtext}) AND dt.state IN ('processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+		}else{
+			return null
+		}
+		return em.getDocumentbyDIN(params)
+		
+    }
+
+    
+
+    void beforeList(params){
+		if (params == null) params = [:]
+		try{
+			def prefixid = params.searchtext.substring(0,5); 
+			if (prefixid == "71007"){
+				params.searchtext = params.searchtext.substring(6);
+			}
+		}catch(e){
+			//nothing
+		}
+		
+		// throw new Exception("TEST" + params.searchtext +"TEST");
+		params.searchtext = (params.searchtext ? params.searchtext :'')+'%'
+
+	}
+
+	@ProxyMethod
+    public void processDocument(entity){
+    	entity.document.each{doc->
+    		def redflags = redflagSvc.getOpenIssues( [refid: doc.objid, blockaction:entity.mode]);
+			if( redflags ) {
+				StringBuilder sb = new StringBuilder();
+				sb.append("There are unresolved issues: \n")
+				redflags.each {
+					sb.append( it.caseno +':'+it.message + ". filed by " + it.filedby.name + "\n");
+				}
+				def w =  new Warning("redflag");
+				w.info.list = redflags;
+				throw w;
+			}
+			// println entity
+			entity.prevtask = getprevtask(doc)
+			// println entity.prevtask
+    		closeprevtask(entity,doc)
+    		if(entity.destinations){
+    			def count = 0;
+				entity.destinations.each{
+					entity.org = it
+					
+					addChild(entity,doc)
+					entity.lft = entity.prevtask.lft + 1
+					entity.rgt = entity.prevtask.lft + 2
+				
+					createnewtask(entity,doc)
+					count ++
+				}
+			}else{
+				addChild(entity,doc)
+				entity.lft = entity.prevtask.lft + 1
+				entity.rgt = entity.prevtask.lft + 2
+				createnewtask(entity,doc)
+			}
+    		// println it
+		}
+    }
+
+    void closeprevtask(o,doc){
+    	def filter = ''' AND dto.orgid = $P{userorgid} AND dt.objid = $P{taskid} '''
+    	taskem.closePrevTask([enddate:dtSvc.serverDate,refid:doc.objid,filter:filter,userorgid:getUserOrg(env.USERID).organizationid,taskid:o.prevtask.taskid]);
+    }
+
+    public def getprevtask(doc){
+    	def filter = ''' AND dto.orgid = $P{userorgid} AND dt.objid = $P{taskid} '''
+    	return taskem.findPrevTask([refid:doc.objid,filter:filter,userorgid:getUserOrg(env.USERID).organizationid,taskid:doc.taskid]);
+   	}
+
+    void addChild(o,doc){
+    	taskem.changeRight([myleft:o.prevtask.lft,refid:doc.objid])
+		taskem.changeLeft([myleft:o.prevtask.lft,refid:doc.objid])
+    }
+
+    void addNode(o,doc){
+    	taskem.changeRight([myleft:o.prevtask.rgt,refid:doc.objid])
+		taskem.changeLeft([myleft:o.prevtask.rgt,refid:doc.objid])
+    }
+
+
+    void createnewtask(o,doc){
+    	def org = getUserOrg(env.USERID)
+    	def state = ''
+    	
+	    	switch(o.mode) {
+				case "send":
+			    	switch(o.sendtype) {
+						case "local":
+							state = 'enroute'
+							org.organizationid = o.org.OrgUnitId.toString()
+							org.name = o.org.name
+							org.address = 'LOCAL'
+							break;
+						case "nonlocal":
+							state = 'closed'
+							org.organizationid = 'NONLOCAL'
+							org.name = o.org.name
+							org.address = 'NONLOCAL'
+							break;
+						case "multiplelocal":
+							state = 'enroute'
+							org.organizationid = o.org.OrgUnitId.toString()
+							org.name = o.org.name
+							org.address = 'LOCAL'
+							break;	
+						case "multiplenonlocal":
+							state = 'closed'
+							org.organizationid = 'NONLOCAL'
+							break;	
+						default:
+							break;
+					} 
+					break;
+				case "outgoing":
+					state = 'outgoing'
+					break;
+				case "receive":
+					state = 'processing'
+					break;	
+				case "archive":
+					state = 'archive'
+					doc.message = doc.message +  " - Cabinet Code:" + o.cabinetcode +" , Folder Code: " +  o.foldercode
+					break;	
+				default:
+					break;
+			}  
+
+    	def newtask = [
+			objid          : 'TSK' + new java.rmi.server.UID(),
+			refid          : doc.objid,
+			parentprocessid: null,
+			lft			   : o.lft,
+			rgt			   : o.rgt,
+			state          : state,
+			startdate      : dtSvc.serverDate,
+			enddate		   : (state.matches('archive|closed') ?  dtSvc.serverDate : null),
+			assignee_objid : (o.assignee == null ?  env.USERID : o.assignee.objid),
+			assignee_name  : (o.assignee == null ?  env.FULLNAME : o.assignee.name),
+			assignee_title : (o.assignee == null ?  env.JOBTITLE : o.assignee.jobtitle),
+			actor_objid    : env.USERID,
+			actor_name     : env.FULLNAME,
+			actor_title    : env.JOBTITLE,
+			message        : doc.message,
+		]
+
+		
+		
+		def newtaskorg = [
+			taskid:newtask.objid,
+			orgid:org.organizationid,
+			macaddress:env.MACADDRESS,
+			name:org.name,
+			address:org.address,
+		]
+
+
+    	taskem.save(newtask)
+    	taskem.save(newtaskorg,'document_task_org')
+		
+    	
+    }
+
+	@ProxyMethod
+    public def getUserOrg(userid){	
+    	try{
+	    	def userorg = emuserorg.findById([objid:userid])
+			return userorg
+		}catch(e){
+			throw new Exception("User not assigned to an Org Unit");
+		}
+    }
+
+    @ProxyMethod
+    public def open(o){
+    	println o
+    	if (o.objid){
+    		o.filter = ''' d.objid = $P{objid} AND dt.objid = $P{taskid} ''';
+    	}else{
+    		o.filter = ''' d.din = $P{barcodeid} ''';
+    	}
+    	o = em.findDocumentbyBarcode(o)
+    	//def documenttype = emdoctype.findById([objid:o.documenttypeid])
+
+    	if(o.documenttype.haschild){
+    		o.filter = ''' d.parentid = $P{objid} ''';
+    		o.child = []
+    		o.child = em.getDocumentbyBarcode(o)
+    	}
+    	// o.documenttype = emdoctype.findById([objid:o.documenttypeid])
+		return o
+		
+    }
+
+    @ProxyMethod
+    public def lookupChild(params){
+    	beforeList(params)
+    	params.filter = ''
+    	params.actorobjid = env.USERID
+    	params.userorgid = getUserOrg(env.USERID)
+    	params.filter = ''' d.din LIKE $P{searchtext} AND dt.state IN ('processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+		return em.getDocumentbyDIN(params)
+    }
+
+    @ProxyMethod
+    public def openParentByID(o){
+    	if (o.objid){
+    		o.filter = ''' d.objid = $P{objid} ''';
+    	}
+    	return em.findDocumentbyBarcode(o)
+    }
+
+    @ProxyMethod
+    public def createOfflineLog(o){
+    		// println o
+    		closeofflineprevtask(o)
+    		addOfflineChild(o)
+			o.task.lft = o.prevtask.lft + 1
+			o.task.rgt = o.prevtask.lft + 2
+			createofflinetask(o)
+			o.prevtask.lft = o.task.lft
+			o.prevtask.rgt = o.task.rgt
+			addOfflineChild(o)
+			o.task.lft = o.prevtask.lft + 1
+			o.task.rgt = o.prevtask.lft + 2
+			createnewofflinetask(o)
+    }
+
+    void addOfflineChild(o){
+    	taskem.changeRight([myleft:o.prevtask.lft,refid:o.refid])
+		taskem.changeLeft([myleft:o.prevtask.lft,refid:o.refid])
+    }
+
+    void closeofflineprevtask(o){
+    	def filter = ''' AND dt.objid = $P{taskid} '''
+    	taskem.closePrevTask([enddate:o.prevtask.startdate,refid:o.refid,filter:filter,taskid:o.prevtask.taskid]);
+    }
+
+
+    void createofflinetask(o){
+    	def org = getUserOrg(env.USERID)
+    	def state = 'offline'
+    	def newtask = [
+			objid          : 'TSK' + new java.rmi.server.UID(),
+			refid          : o.refid,
+			parentprocessid: null,
+			lft			   : o.task.lft,
+			rgt			   : o.task.rgt,
+			state          : state,
+			startdate      : o.prevtask.startdate,
+			enddate		   : dtSvc.serverDate,
+			assignee_objid : env.USERID,
+			assignee_name  : env.FULLNAME,
+			assignee_title : env.JOBTITLE,
+			actor_objid    : env.USERID,
+			actor_name     : env.FULLNAME,
+			actor_title    : env.JOBTITLE,
+			message        : o.message,
+		]
+
+		
+		
+		def newtaskorg = [
+			taskid:newtask.objid,
+			orgid:org.organizationid,
+			macaddress:env.MACADDRESS,
+			name:org.name,
+			address:org.address,
+		]
+
+
+    	taskem.save(newtask)
+    	taskem.save(newtaskorg,'document_task_org')
+		
+    	
+    }
+
+      void createnewofflinetask(o){
+    	def org = getUserOrg(env.USERID)
+    	def state = ''
+    	o.message = "OFFLINE: " + o.message
+	    	switch(o.reconciliationAction) {
+				case "send":
+			    	state = 'enroute'
+					org.address = 'LOCAL'
+					break;
+					break;
+				case "outgoing":
+					state = 'outgoing'
+					break;
+				case "receive":
+					state = 'processing'
+					break;	
+				case "archive":
+					state = 'archive'
+					break;	
+				default:
+					break;
+			}  
+
+    	def newtask = [
+			objid          : 'TSK' + new java.rmi.server.UID(),
+			refid          : o.refid,
+			parentprocessid: null,
+			lft			   : o.task.lft,
+			rgt			   : o.task.rgt,
+			state          : state,
+			startdate      : dtSvc.serverDate,
+			enddate		   : (state.matches('archive|closed') ?  dtSvc.serverDate : null),
+			assignee_objid : env.USERID,
+			assignee_name  : env.FULLNAME,
+			assignee_title : env.JOBTITLE,
+			actor_objid    : env.USERID,
+			actor_name     : env.FULLNAME,
+			actor_title    : env.JOBTITLE,
+			message        : o.message,
+		]
+
+		
+		
+		def newtaskorg = [
+			taskid:newtask.objid,
+			orgid:org.organizationid,
+			macaddress:env.MACADDRESS,
+			name:org.name,
+			address:org.address,
+		]
+
+
+    	taskem.save(newtask)
+    	taskem.save(newtaskorg,'document_task_org')
+		
+    	
+    }
+}

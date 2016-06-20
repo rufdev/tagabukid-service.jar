@@ -1,0 +1,79 @@
+import com.rameses.annotations.*;
+import com.rameses.services.extended.*;
+import java.rmi.server.*;
+
+
+class TagabukidDTSListService extends ActiveCrudListService  {
+
+	@ActiveDB(value='dts', em='tagabukid_etracs')
+	def em
+
+	@Service("DateService")
+	def dateSvc;
+
+	@ProxyMethod
+	public def getNodes(o) {
+		def nodes = [];
+		nodes << [name:'idle',  caption: 'Idle', leaf:true, allowSearch:true, folder:true];
+		nodes << [name:'outgoing',  caption: 'Outgoing', leaf:true, allowSearch:true, folder:true];
+		nodes << [name:'enroute', caption: 'En Route', leaf:true, allowSearch:true, folder:true];
+		nodes << [name:'processing', caption: 'Processing', leaf:true, allowSearch:true, folder:true];
+		nodes << [name:'archive', caption: 'Archived/Closed/Attached', leaf:true, allowSearch:true, folder:true];
+		return nodes;
+	}	
+
+	@ProxyMethod
+	public def getColumns(o) {
+		def cols = [];
+		cols <<	[name:'din', caption:'DIN', width:120, resizable:false];
+		cols <<	[name:'state', caption:'State', width:120, resizable:false];
+		cols <<	[name:'title', caption:'Title', width:130];
+		cols << [name:'recordlog.datecreated', caption:'Date Created', width:130, resizable:false];
+		cols <<	[name:'recordlog.createdbyuser', caption:'Created By', width:130, resizable:false];
+		cols <<	[name:'name', caption:'Location', width:130, resizable:false];
+		return cols;
+	}
+
+	public void beforeList(o) {
+		o._pagingKeys = "d.objid";
+		o.filter = '';
+		//int activeyear = dateSvc.getServerYear();
+
+		switch(o.name) {
+			case 'search':
+				if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "%";
+				o.filter = ''' AND dt.enddate IS NULL  OR dt.state IN ('attached','archive','closed') ''';
+				break;
+				
+			//--------------- processing--------------------	
+			case 'idle':
+				o.state = 'idle';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				break;
+
+			case 'outgoing':
+				o.state = 'outgoing';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				break;
+
+			case 'enroute':
+				o.state = 'enroute';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				break;
+
+			case 'processing':
+				o.state = 'processing';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				break;
+
+			case 'archive':
+				o.state = 'archive';
+				o.filter = ''' AND dt.state IN ('attached','archive','closed')''';
+				break;
+
+			default:
+				break;
+		}
+	}
+
+} 

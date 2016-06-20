@@ -1,0 +1,32 @@
+import com.rameses.annotations.*
+import com.rameses.common.*
+import com.rameses.eserver.*;
+import java.rmi.server.UID;
+
+public class TagabukidDTSLookupService
+{
+
+	@Service('TagabukidLookupUtilService')
+	def util 
+
+	// @ProxyMethod
+	// public def lookupDIN( params ) {
+	// 	return util.lookupDIN( 'dts:getDocumentbyDIN', params,'objid' )
+	// }
+
+	@ProxyMethod
+	public def lookupEtracsUser( params ) {
+		return util.lookupMain( 'dts:getEtracsUser', params,'objid' )
+	}
+
+	@ProxyMethod
+	public def lookupHrisOrg( params ) {
+		return util.lookupHrisOrg( 'dts:getHrisOrg', params,'OrgUnitId' )
+	}
+
+	@ProxyMethod
+	public def lookupDocumentType( params ) {
+		return util.lookup( 'documenttype:getList', params,'objid' )
+	}
+
+}
