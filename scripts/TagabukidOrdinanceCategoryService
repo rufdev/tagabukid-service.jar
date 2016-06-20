@@ -64,18 +64,12 @@ class TagabukidOrdinanceCategoryService extends ActiveCrudListService
 	}
 
 	void beforeCreate(o){
-		o.recordlog_datecreated = getMonthFirstDate( dtSvc.serverDate )
+		o.recordlog_datecreated = dtSvc.serverDate
 		o.recordlog_createdbyuserid = env.USERID
 		o.recordlog_createdbyuser = env.FULLNAME
-		o.recordlog_dateoflastupdate =  getMonthFirstDate( dtSvc.serverDate )
+		o.recordlog_dateoflastupdate =  dtSvc.serverDate
 		o.recordlog_lastupdatedbyuserid = env.USERID
 		o.recordlog_lastupdatedbyuser = env.FULLNAME
 	}
 
-	public def getMonthFirstDate( dt ) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(dt);
-        cal.set( Calendar.DAY_OF_MONTH, 1 );
-        return dtSvc.format('yyyy-MM-dd', cal.getTime()) + " 00:00:00";
-    }
 }

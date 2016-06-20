@@ -64,10 +64,10 @@ class TagabukidOrdinanceClassificationService extends ActiveCrudListService
 	}
 
 	void beforeCreate(o){
-		o.recordlog_datecreated = getMonthFirstDate( dtSvc.serverDate )
+		o.recordlog_datecreated = dtSvc.serverDate
 		o.recordlog_createdbyuserid = env.USERID
 		o.recordlog_createdbyuser = env.FULLNAME
-		o.recordlog_dateoflastupdate =  getMonthFirstDate( dtSvc.serverDate )
+		o.recordlog_dateoflastupdate =  dtSvc.serverDate
 		o.recordlog_lastupdatedbyuserid = env.USERID
 		o.recordlog_lastupdatedbyuser = env.FULLNAME
 	}

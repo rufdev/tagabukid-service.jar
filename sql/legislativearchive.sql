@@ -3,6 +3,7 @@ SELECT *
 FROM legislativearchive 
 WHERE ( ordresno LIKE $P{searchtext} OR rsno LIKE $P{searchtext} OR spno LIKE $P{searchtext} 
 OR title LIKE $P{searchtext} OR remarks LIKE $P{searchtext} )
+${filter}
 ORDER BY ordresno
 
 [getLists]
@@ -71,3 +72,22 @@ DELETE FROM legislativearchive_committee WHERE objid = $P{objid}
 DELETE FROM legislativearchive_authors WHERE objid = $P{objid}
 [deleteAllCoAuthorItems]
 DELETE FROM legislativearchive_coauthors WHERE objid = $P{objid}
+
+[approve]
+UPDATE legislativearchive 
+SET state = 'APPROVED'
+WHERE objid = $P{objid}
+
+
+[updatestate]
+UPDATE legislativearchive 
+SET state = $P{state},
+recordlog_dateoflastupdate = $P{recordlog_dateoflastupdate},
+recordlog_lastupdatedbyuserid = $P{recordlog_lastupdatedbyuserid},
+recordlog_lastupdatedbyuser = $P{recordlog_lastupdatedbyuser}
+WHERE objid = $P{objid}
+
+[getArchive]
+SELECT * FROM legislativearchive;
+
+

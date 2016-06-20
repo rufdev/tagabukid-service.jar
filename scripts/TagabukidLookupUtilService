@@ -6,6 +6,15 @@ class TagabukidLookupUtilService
 {
 	@PersistenceContext('tagabukid_etracs')
 	def em
+
+	@PersistenceContext('main')
+	def emmain
+
+	@PersistenceContext('postgrereferences')
+	def empostref
+
+	@Env
+	def env;
 	
 	@ProxyMethod
 	public def lookup( namedsql, params, pagingKeys) {
@@ -25,9 +34,71 @@ class TagabukidLookupUtilService
 		return qry.setParameters(params).resultList 
 	}
 
+	// @ProxyMethod
+	// public def lookupDIN( namedsql, params, pagingKeys) {
+	// 	if (! params) params = [:]
+	// 	params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
+
+	// 	def qry = em.sqlContext.createNamedQuery(namedsql)
+		
+	// 	if (pagingKeys){
+	// 		qry.setPagingKeys(pagingKeys)
+	// 	}
+	// 	if (params._start != null){
+	// 		qry.setFirstResult( params._start )
+	// 		qry.setMaxResults(params._limit)
+	// 	}
+	// 	params.filter = '';
+	// 	println params.mode
+	// 	if (params.mode == "SEND"){
+	// 		//filter = ''' AND dt.state =  AND b.state = $P{state} AND b.permitno IS NULL''';
+	// 		params.state = "'init','outgoing'"
+	// 		params.actorobjid = env.USERID
+	// 		params.filter = " AND dt.actor_objid = '"+ params.actorobjid +"'"
+	// 		println params.filter
+	// 	}else{
+	// 		return null
+	// 	}
+	// 	def test = qry.setParameters(params).resultList 
+	// 	println test
+	// 	return  test
+	// }
+
 	@ProxyMethod
-	public def ListLookup( params ) {
-		println "TEST"*50
-	} 
+	public def lookupMain( namedsql, params, pagingKeys) {
+		if (! params) params = [:]
+		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
+
+		def qry = emmain.sqlContext.createNamedQuery(namedsql)
+		
+		if (pagingKeys){
+			qry.setPagingKeys(pagingKeys)
+		}
+		if (params._start != null){
+			qry.setFirstResult( params._start )
+			qry.setMaxResults(params._limit)
+		}
+		
+		return qry.setParameters(params).resultList 
+	}
+
+	@ProxyMethod
+	public def lookupHrisOrg( namedsql, params, pagingKeys) {
+		if (! params) params = [:]
+		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
+
+		def qry = empostref.sqlContext.createNamedQuery(namedsql)
+		
+		// if (pagingKeys){
+		// 	qry.setPagingKeys(pagingKeys)
+		// }
+		// if (params._start != null){
+		// 	qry.setFirstResult( params._start )
+		// 	qry.setMaxResults(params._limit)
+		// }
+		
+		return qry.setParameters(params).resultList 
+	}
+
 
 }

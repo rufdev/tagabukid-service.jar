@@ -1,6 +1,7 @@
 <schema>
 	<element name="legislativearchive" tablename="legislativearchive">
 		<field name="objid" primary="true"/>
+		<field name="state" required="true"/>
 		<field name="ordresno" required="true"/>
 		<field name="rsno" required="true"/>
 		<field name="spno" required="true"/>
