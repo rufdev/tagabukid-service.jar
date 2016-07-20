@@ -11,6 +11,12 @@ class TagabukidDTSListService extends ActiveCrudListService  {
 	@Service("DateService")
 	def dateSvc;
 
+	@Service("TagabukidDTSService")
+	def dtssvc;
+
+	@Env
+	def env;
+
 	@ProxyMethod
 	public def getNodes(o) {
 		def nodes = [];
@@ -30,6 +36,8 @@ class TagabukidDTSListService extends ActiveCrudListService  {
 		cols <<	[name:'title', caption:'Title', width:130];
 		cols << [name:'recordlog.datecreated', caption:'Date Created', width:130, resizable:false];
 		cols <<	[name:'recordlog.createdbyuser', caption:'Created By', width:130, resizable:false];
+		//cols <<	[name:'actor.name', caption:'OIC/Liaison', width:130, resizable:false];
+		//cols <<	[name:'assignee.name', caption:'Performed By', width:130, resizable:false];
 		cols <<	[name:'name', caption:'Location', width:140, resizable:true];
 		return cols;
 	}
@@ -38,37 +46,68 @@ class TagabukidDTSListService extends ActiveCrudListService  {
 		o._pagingKeys = "d.objid";
 		o.filter = '';
 		//int activeyear = dateSvc.getServerYear();
-
+		def userorgid  = dtssvc.getUserOrg(env.USERID).organizationid
+		o.userorgid = userorgid
 		switch(o.name) {
 			case 'search':
 				if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "%";
-				o.filter = ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed'))''';
+				o.filter = ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed')) AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
+				FROM document_task t2 
+				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
+				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
+				ORDER BY t2.rgt-dt.rgt ASC
+				LIMIT 1) = $P{userorgid})''';
 				break;
 				
 			//--------------- processing--------------------	
 			case 'idle':
 				o.state = 'idle';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
+				FROM document_task t2 
+				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
+				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
+				ORDER BY t2.rgt-dt.rgt ASC
+				LIMIT 1) = $P{userorgid})''';
 				break;
 
 			case 'outgoing':
 				o.state = 'outgoing';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
+				FROM document_task t2 
+				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
+				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
+				ORDER BY t2.rgt-dt.rgt ASC
+				LIMIT 1) = $P{userorgid})''';
 				break;
 
 			case 'enroute':
 				o.state = 'enroute';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
+				FROM document_task t2 
+				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
+				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
+				ORDER BY t2.rgt-dt.rgt ASC
+				LIMIT 1) = $P{userorgid})''';
 				break;
 
 			case 'processing':
 				o.state = 'processing';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
+				FROM document_task t2 
+				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
+				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
+				ORDER BY t2.rgt-dt.rgt ASC
+				LIMIT 1) = $P{userorgid})''';
 				break;
 
 			case 'archive':
 				o.state = 'archive';
-				o.filter = ''' AND dt.state IN ('attached','archive','closed')''';
+				o.filter = ''' AND dt.state IN ('attached','archive','closed') AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
+				FROM document_task t2 
+				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
+				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
+				ORDER BY t2.rgt-dt.rgt ASC
+				LIMIT 1) = $P{userorgid})''';
 				break;
 
 			default:

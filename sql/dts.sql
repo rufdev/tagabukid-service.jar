@@ -72,6 +72,9 @@ d.recordlog_createdbyuser,
 d.recordlog_dateoflastupdate,
 d.recordlog_lastupdatedbyuserid,
 d.recordlog_lastupdatedbyuser,
+ug.organizationid,
+ug.orgname,
+ug.orgcode,
 dt.objid AS taskid,
 dt.refid,
 dt.parentprocessid,
@@ -95,8 +98,15 @@ dto.address,
 dtyp.code AS documenttype_code,
 dtyp.name AS documenttype_name,
 dtyp.description AS documenttype_description,
-dtyp.haschild AS documenttype_haschild
+dtyp.haschild AS documenttype_haschild,
+(SELECT dto.orgid
+FROM document_task t2 
+INNER JOIN document_task_org dto ON dto.taskid = t2.objid
+WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
+ORDER BY t2.rgt-dt.rgt ASC
+LIMIT 1) AS senderorg
 FROM document d
+INNER JOIN user_organization ug ON ug.objid = d.`recordlog_createdbyuserid`
 INNER JOIN document_task dt ON dt.`refid` = d.`objid`
 INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
@@ -123,6 +133,9 @@ d.recordlog_createdbyuser,
 d.recordlog_dateoflastupdate,
 d.recordlog_lastupdatedbyuserid,
 d.recordlog_lastupdatedbyuser,
+ug.organizationid AS originorgid,
+ug.orgname AS originorgname,
+ug.orgcode AS originorgcode,
 dt.objid AS taskid,
 dt.refid,
 dt.parentprocessid,
@@ -148,6 +161,7 @@ dtyp.name AS documenttype_name,
 dtyp.description AS documenttype_description,
 dtyp.haschild AS documenttype_haschild
 FROM document d
+INNER JOIN user_organization ug ON ug.objid = d.`recordlog_createdbyuserid`
 INNER JOIN document_task dt ON dt.`refid` = d.`objid`
 INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
@@ -171,6 +185,9 @@ d.recordlog_createdbyuser,
 d.recordlog_dateoflastupdate,
 d.recordlog_lastupdatedbyuserid,
 d.recordlog_lastupdatedbyuser,
+ug.organizationid AS originorgid,
+ug.orgname AS originorgname,
+ug.orgcode AS originorgcode,
 dt.objid AS taskid,
 dt.refid,
 dt.parentprocessid,
@@ -196,6 +213,7 @@ dtyp.name AS documenttype_name,
 dtyp.description AS documenttype_description,
 dtyp.haschild AS documenttype_haschild
 FROM document d
+INNER JOIN user_organization ug ON ug.objid = d.`recordlog_createdbyuserid`
 INNER JOIN document_task dt ON dt.`refid` = d.`objid`
 INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`

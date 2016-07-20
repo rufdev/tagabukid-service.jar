@@ -332,10 +332,6 @@ public class TagabukidDTSService  {
 					break;
 				case "outgoing":
 					state = 'outgoing'
-					org.organizationid = o.org.OrgUnitId.toString()
-					org.orgname = o.org.name
-					org.orgcode = o.org.code
-					org.address = 'LOCAL'
 					break;
 				case "receive":
 					state = 'processing'
@@ -391,7 +387,6 @@ public class TagabukidDTSService  {
 				notificationService.removeMessage([objid: o.prevtask.objid]); 
 			}
 
-
 			def userorg = emuserorg.getUserByOrg([orgid:org.organizationid])
 			userorg.each{
 				it.task = newtask
@@ -400,13 +395,21 @@ public class TagabukidDTSService  {
 			}
 			notifyMessage(userorg)
     	}else if (o.mode == 'outgoing'){
-			def userorg = emuserorg.getUserByOrg([orgid:org.organizationid])
+    		def userorg = []
+    		if(o.org.OrgUnitId.toString()){
+				userorg = emuserorg.getUserByOrg([orgid:o.org.OrgUnitId.toString()])
+			}
+			def originuserorg = emuserorg.findById([objid:doc.recordlog.createdbyuserid])
+			def originorg = emuserorg.getUserByOrg([orgid:originuserorg.organizationid])
+			originorg.each{
+				userorg.push(it)
+			}
 			userorg.each{
 				it.task = newtask
 				it.doc = doc
 				it.documenttype = emdoctype.findById([objid:doc.documenttypeid])
 			}
-			notifyMessage(userorg)
+			notifyMessageOutgoing(userorg)
     	}else if (o.mode == 'receive'){
 	    	def notification = notifyem.getByObjid([objid: o.prevtask.objid])
 			notification.each{
@@ -634,6 +637,23 @@ public class TagabukidDTSService  {
 	            recipientid   	: it.objid,
 	            recipienttype 	: 'user',
 	            message   		: 'INCOMING ' + it.doc.din + ':' + it.documenttype.name + "|FROM: " + getUserOrg(env.USERID).orgcode,
+	            filetype  		: 'document_incoming',
+	            data 	  		: [objid:it.doc.objid,taskid:it.task.objid],
+	        ];
+	        notificationService.addMessage( m );	
+		}
+	}
+
+	@ProxyMethod
+	public void notifyMessageOutgoing(def o) {
+		o.each {
+	  		def m = [
+	            objid     		: it.task.objid, 
+	            senderid  		: env.USERID,
+	            sender    		: env.FULLNAME,
+	            recipientid   	: it.objid,
+	            recipienttype 	: 'user',
+	            message   		: 'OUTGOING ' + it.doc.din + ':' + it.documenttype.name + "|FOR PICKUP AT " + getUserOrg(env.USERID).orgcode,
 	            filetype  		: 'document_incoming',
 	            data 	  		: [objid:it.doc.objid,taskid:it.task.objid],
 	        ];
