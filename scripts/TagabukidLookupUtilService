@@ -13,6 +13,13 @@ class TagabukidLookupUtilService
 	@PersistenceContext('postgrereferences')
 	def empostref
 
+	@PersistenceContext('postgrehrmis')
+	def emposthrmis
+
+	@PersistenceContext('btacs')
+	def embtacs
+
+
 	@Env
 	def env;
 	
@@ -88,6 +95,80 @@ class TagabukidLookupUtilService
 		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
 
 		def qry = empostref.sqlContext.createNamedQuery(namedsql)
+		
+		// if (pagingKeys){
+		// 	qry.setPagingKeys(pagingKeys)
+		// }
+		// if (params._start != null){
+		// 	qry.setFirstResult( params._start )
+		// 	qry.setMaxResults(params._limit)
+		// }
+		
+		return qry.setParameters(params).resultList 
+	}
+
+
+	@ProxyMethod
+	public def lookupProfile( namedsql, params, pagingKeys) {
+		if (! params) params = [:]
+		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
+		
+		def qry = emposthrmis.sqlContext.createNamedQuery(namedsql)
+		
+		// if (pagingKeys){
+		// 	qry.setPagingKeys(pagingKeys)
+		// }
+		// if (params._start != null){
+		// 	qry.setFirstResult( params._start )
+		// 	qry.setMaxResults(params._limit)
+		// }
+		
+		return qry.setParameters(params).resultList 
+	}
+
+
+	@ProxyMethod
+	public def lookupSignatory( namedsql, params, pagingKeys) {
+		if (! params) params = [:]
+		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
+		
+		def qry = embtacs.sqlContext.createNamedQuery(namedsql)
+		
+		// if (pagingKeys){
+		// 	qry.setPagingKeys(pagingKeys)
+		// }
+		// if (params._start != null){
+		// 	qry.setFirstResult( params._start )
+		// 	qry.setMaxResults(params._limit)
+		// }
+		
+		return qry.setParameters(params).resultList 
+	}
+
+	@ProxyMethod
+	public def lookupPersonnel( namedsql, params, pagingKeys) {
+		if (! params) params = [:]
+		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
+		
+		def qry = emposthrmis.sqlContext.createNamedQuery(namedsql)
+
+		// if (pagingKeys){
+		// 	qry.setPagingKeys(pagingKeys)
+		// }
+		// if (params._start != null){
+		// 	qry.setFirstResult( params._start )
+		// 	qry.setMaxResults(params._limit)
+		// }
+		
+		return qry.setParameters(params).resultList 
+	}
+
+	@ProxyMethod
+	public def lookupLeaveClass( namedsql, params, pagingKeys) {
+		if (! params) params = [:]
+		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
+		
+		def qry = embtacs.sqlContext.createNamedQuery(namedsql)
 		
 		// if (pagingKeys){
 		// 	qry.setPagingKeys(pagingKeys)

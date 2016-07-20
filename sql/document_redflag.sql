@@ -40,7 +40,7 @@ dto.address
 FROM document d
 INNER JOIN document_task dt ON dt.`refid` = d.`objid`
 INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
-WHERE d.objid=$P{refid} 
+WHERE d.objid=$P{refid} AND dt.state = 'redflag' AND dt.enddate IS NULL
 ORDER BY d.title
 
 [getByObjid]

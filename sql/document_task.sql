@@ -39,3 +39,32 @@ UPDATE document_task SET rgt = rgt + 2 WHERE rgt > $P{myleft} AND refid = $P{ref
 
 [changeLeft]
 UPDATE document_task SET lft = lft + 2 WHERE lft > $P{myleft} AND refid = $P{refid}
+
+[getChildTask]
+SELECT xx.*,dto.* FROM (
+SELECT node.*, (COUNT(parent.objid) - (sub_tree.depth + 1)) AS depth
+FROM document_task AS node,
+        document_task AS parent,
+        document_task AS sub_parent,
+        (
+                SELECT node.objid, (COUNT(parent.objid) - 1) AS depth
+                FROM document_task AS node,
+                document_task AS parent
+                WHERE node.lft BETWEEN parent.lft AND parent.rgt
+                AND node.`objid` = $P{taskid}
+              
+                AND node.refid = $P{refid}
+				AND parent.refid = $P{refid}
+                GROUP BY node.objid
+                ORDER BY node.lft
+        )AS sub_tree
+WHERE node.lft BETWEEN parent.lft AND parent.rgt
+        AND node.lft BETWEEN sub_parent.lft AND sub_parent.rgt
+        AND sub_parent.objid = sub_tree.objid
+	AND node.refid = $P{refid}
+	AND parent.refid = $P{refid}
+	AND sub_parent.refid = $P{refid}
+GROUP BY node.objid
+ORDER BY node.lft)xx
+INNER JOIN document_task_org dto ON dto.`taskid` = xx.`objid`
+WHERE xx.depth = 1;

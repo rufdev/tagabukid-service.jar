@@ -29,4 +29,28 @@ public class TagabukidDTSLookupService
 		return util.lookup( 'documenttype:getList', params,'objid' )
 	}
 
+	@ProxyMethod
+	public def lookupBTACSApprover( params ) {
+		return util.lookupProfile( 'btacsapprover:getProfile', params,'PersonId' )
+	}
+
+	@ProxyMethod
+	public def lookupBTACSSignatory( params ) {
+		return util.lookupSignatory( 'btacsapprover:getSignatoryList', params,'NAME' )
+	}
+
+	@ProxyMethod
+	public def lookupBTACSPersonnel( params ) {
+		def personnel = util.lookupPersonnel( 'btacsapprover:getProfile', params,'PersonId' )
+		personnel.each{
+			it.fullname = it.Name.FirstName + " " + it.Name.MiddleName + " " + it.Name.LastName;
+		}
+		return personnel
+	}
+
+	@ProxyMethod
+	public def lookupBTACSLeaveClass( params ) {
+		return util.lookupLeaveClass( 'btacsapprover:getLeaveClassList', params,'LeaveId' )
+	}
+
 }

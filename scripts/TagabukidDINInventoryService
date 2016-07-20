@@ -18,6 +18,9 @@ class TagabukidDINInventoryService extends ActiveCrudListService
 
 	@ActiveDB(value='sequence', em='system')
 	def emsq;
+
+	@ActiveDB(value='userorg', em='postgrereferences')
+	def empostref
 	
 	@Env
 	def env;
@@ -56,6 +59,8 @@ class TagabukidDINInventoryService extends ActiveCrudListService
             [name:"startserialno", caption:"Start DIN", width:100],
             [name:"endserialno", caption:"End DIN", width:100],
             [name:"qty", caption:"Quantity", width:40],
+            [name:"orgname", caption:"Office/Organization", width:50],
+            [name:"orgcode", caption:"Code", width:50],
             [name:"expdate", caption:"Expiry Date", width:100],
 		]	
 	}
@@ -65,9 +70,16 @@ class TagabukidDINInventoryService extends ActiveCrudListService
 	public def getList( params ) {
 		beforeList(params)
 		def inventory = em.getList(params)
+		inventory.each{
+			def org = empostref.getOrgById([orgid:"'"+it.orgid+"'"])
+			it.orgname = org.Entity[0].Name
+			it.orgcode = org.Entity[0].AcronymAbbreviation
+		}
 		return inventory
 		
 	} 
+
+	
 
 
 	@ProxyMethod
@@ -93,9 +105,14 @@ class TagabukidDINInventoryService extends ActiveCrudListService
 		def mnth = dtSvc.serverMonth;
 		def smon = ( mnth < 10 ) ? "0"+mnth : mnth+"";
 		def prefix = appcode+yr+smon;
-		def seq = emsq.findCurrentSeries([ objid: prefix ]); 
+		def seq = emsq.findCurrentSeries([ objid: prefix ]);
 		if ( ! seq ) {
-			seq = createseq( prefix );
+			seq = seqSvc.create( prefix );
+			// seq = [
+			// 	objid      : prefix,
+			// 	nextSeries : 1,
+			// ];
+			// emsq.create("sequence:sequence",seq);
 			def dinsequence = [
 				prefix         : prefix,
 				currentsequence: seq.nextSeries
@@ -107,12 +124,19 @@ class TagabukidDINInventoryService extends ActiveCrudListService
 			prefix : prefix,
 			currentsequence : seq.currentSeries
 		]
+
 		return dinsequence;
 	}
 
 	@ProxyMethod(local=true)
 	public def createseq( objid ) {
-		def seq = emsq.read("sequence:sequence", [objid:objid])
+		def seq = null
+		try{
+			seq = emsq.read("sequence:sequence", [objid:objid])
+		}
+		catch(e){
+
+		}
 		def nextSeries = 1;
 		if( ! seq ) {
 			seq = [
@@ -133,7 +157,7 @@ class TagabukidDINInventoryService extends ActiveCrudListService
 			def din = [
 				din    : inv.prefix + "$sequence".padLeft(5, '0'),
 				barcode: "71007:" + inv.prefix + "$sequence".padLeft(5, '0'),
-				orgname: dtsSvc.getUserOrg(inv.recordlog.createdbyuserid).name
+				orgname: dtsSvc.getUserOrg(inv.recordlog.createdbyuserid).orgname
 			]
 			dins.push(din)
 		}

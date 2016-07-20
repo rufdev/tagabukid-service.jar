@@ -49,6 +49,7 @@ public class TagabukidRedflagService extends ActiveCrudListService {
 		o.resolved = 1;
 		em.update( o );
 		def notification = notifyem.getByObjid([objid: o.objid])
+		dtssvc.createRedFlagResolveLog(o)
 		notification.each{
 			notificationService.removeMessage([objid: o.objid]); 
 		}
@@ -62,6 +63,7 @@ public class TagabukidRedflagService extends ActiveCrudListService {
 	}
 
 	public void afterOpen( o ) {
+		
 		def b = em.findDocumentInfo( o );
         o.din = b.din;
         o.title = b.title;
@@ -71,8 +73,10 @@ public class TagabukidRedflagService extends ActiveCrudListService {
         o.recordlog = b.recordlog;
         o.state = b.state;
         o.refid = b.objid;
+        o.taskid = b.taskid;
         o.org = empostref.getOrgById([orgid:"'"+o.organizationid+"'"])[0]
-        o.documenttype = dtssvc.open([objid:o.refid]).documenttype
+       	
+        o.documenttype = dtssvc.open([barcodeid:o.din]).documenttype
 	}
 	public void afterCreate(o) {
 		def uesrorg = emuserorg.getUserByOrg([orgid:o.org.OrgUnitId.toString()])
@@ -88,6 +92,7 @@ public class TagabukidRedflagService extends ActiveCrudListService {
 			rf.push(x)
 		}
 		//println rf.filedby.objid
+		dtssvc.createRedFlagLog(o)
 		notifyMessage(rf)
 	}
 
@@ -113,7 +118,7 @@ public class TagabukidRedflagService extends ActiveCrudListService {
 	            sender    		: env.FULLNAME,
 	            recipientid   	: it.filedby.objid,
 	            recipienttype 	: 'user',
-	            message   		: 'Needs resolving ' + it.caseno + ':' + it.message,
+	            message   		: 'NEEDS RESOLVING ' + it.caseno + ':' + it.message,
 	            filetype  		: 'document_redflag_resolve',
 	            data 	  		: [:],
 	        ];

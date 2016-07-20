@@ -23,6 +23,7 @@
 		<field name="orgid" required="true"/>
 		<field name="macaddress" required="true"/>
 		<field name="name" />
+		<field name="code" />
 		<field name="address" />
 	</element>	
 </schema>

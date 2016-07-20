@@ -105,7 +105,7 @@ OR d.title LIKE $P{searchtext}
 OR d.description LIKE $P{searchtext}
 OR d.tags LIKE $P{searchtext})
 ${filter}
-ORDER BY d.title
+ORDER BY d.title, dt.startdate
 
 [findDocumentbyBarcode]
 SELECT d.objid,
@@ -201,7 +201,7 @@ INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
 WHERE ${filter}
 AND (dt.enddate IS NULL OR dt.state IN ('archive','attached'))
-ORDER BY d.title
+ORDER BY d.title, dt.startdate
 
 [updateparent]
 UPDATE document SET parentid = $P{parentid} WHERE objid = $P{objid}

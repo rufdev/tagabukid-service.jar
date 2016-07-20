@@ -30,7 +30,7 @@ class TagabukidDTSListService extends ActiveCrudListService  {
 		cols <<	[name:'title', caption:'Title', width:130];
 		cols << [name:'recordlog.datecreated', caption:'Date Created', width:130, resizable:false];
 		cols <<	[name:'recordlog.createdbyuser', caption:'Created By', width:130, resizable:false];
-		cols <<	[name:'name', caption:'Location', width:130, resizable:false];
+		cols <<	[name:'name', caption:'Location', width:140, resizable:true];
 		return cols;
 	}
 
@@ -42,7 +42,7 @@ class TagabukidDTSListService extends ActiveCrudListService  {
 		switch(o.name) {
 			case 'search':
 				if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "%";
-				o.filter = ''' AND dt.enddate IS NULL  OR dt.state IN ('attached','archive','closed') ''';
+				o.filter = ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed'))''';
 				break;
 				
 			//--------------- processing--------------------	

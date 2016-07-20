@@ -60,6 +60,11 @@ class TagabukidWorkflowTaskListService extends ActiveListService {
 				it.title = 'OFFLINE';
 				break;
 
+			case 'redflag':
+				def org = empostref.getOrgById([orgid:"'"+it.orgid+"'"])
+				it.title = 'Red Flag for ' + org.Entity[0].AcronymAbbreviation;
+				break;
+
 			default:
 				break;
 		}

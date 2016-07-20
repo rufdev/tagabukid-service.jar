@@ -23,11 +23,18 @@ public class TagabukidDTSService  {
 	@ActiveDB(value='documenttype', em='tagabukid_etracs')
 	def emdoctype
 
+	@ActiveDB(value='document_redflag', em='notification') 
+    def notifyem; 
+
 	@Service("TagaBukidRedflagService")
 	def redflagSvc;
 
+	@Service('NotificationService')
+	def notificationService
+
 	@Env
 	def env;
+
 
 	@ProxyMethod
 	public def initNew(o) {
@@ -39,6 +46,7 @@ public class TagabukidDTSService  {
 		entity.state = 'IDLE'
 		entity.docstate = 'IDLE'
 		entity.child = []
+		entity.docinfo = [:]
 		entity.recordlog.datecreated = dtSvc.serverDate
 		entity.recordlog.createdbyuserid = env.USERID
 		entity.recordlog.createdbyuser = env.FULLNAME
@@ -63,9 +71,8 @@ public class TagabukidDTSService  {
 				taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'attached',message:'Attached to document no. ' + o.din]);
 			}
 		}
+
 		return o;
-	
-		
     }
 
 	public def createdin(def o) {
@@ -103,6 +110,32 @@ public class TagabukidDTSService  {
 		}
 	}
 
+	// @ProxyMethod
+	// public def verifyreconciliationdin(din) {
+	// 	try{
+	// 		def prefix = (din.substring(0,5)=="71007" ? din.substring(6,15) : din.substring(0,9)) 
+	// 		def sequence = (din.substring(0,5)=="71007" ? din.substring(15) : din.substring(9)) 
+
+	// 		din = prefix + sequence
+
+	// 		def filter = ''' d.din = $P{barcodeid} ''';
+	// 		def doc = em.findDocumentbyBarcode([barcodeid:din,filter:filter])
+	// 		if (doc){
+	// 			throw new Exception("DIN :" + din + " is already referenced to a document");
+	// 		}
+			
+	// 		def inv = em.findDocumentInv([prefix:prefix,sequence:sequence,orgid:getUserOrg(env.USERID).organizationid])
+	// 		if(!inv){
+	// 			throw new Exception("Invalid DIN");
+	// 		}
+
+
+	// 		return [din:din,inv:inv]
+	// 	}catch(e){
+	// 		throw new Exception("Invalid DIN");
+	// 	}
+	// }
+
 
 	public def inittask(o){
 		def inittask = [
@@ -127,7 +160,8 @@ public class TagabukidDTSService  {
 			taskid:inittask.objid,
 			orgid:org.organizationid,
 			macaddress:env.MACADDRESS,
-			name:org.name,
+			name:org.orgname,
+			code:org.orgcode,
 			address:org.address,
 		]
 		taskem.save(newtaskorg,'document_task_org')
@@ -142,19 +176,37 @@ public class TagabukidDTSService  {
     	params.userorgid = getUserOrg(env.USERID).organizationid
     
     	if (params.mode.matches('send|outgoing|archive')){
-	    	params.filter = ''' (d.title LIKE $P{searchtext} OR d.din LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing') AND dt.actor_objid = $P{actorobjid} AND dt.enddate IS NULL'''
+	    	params.filter = ''' (d.din LIKE $P{searchtext}
+							OR d.title LIKE $P{searchtext}
+							OR d.description LIKE $P{searchtext}
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
 		}else if (params.mode =='receive'){
-	    	params.filter = ''' (d.title LIKE $P{searchtext} OR d.din LIKE $P{searchtext}) AND dt.state IN ('enroute') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+	    	params.filter = ''' (d.din LIKE $P{searchtext}
+							OR d.title LIKE $P{searchtext}
+							OR d.description LIKE $P{searchtext}
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('enroute') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
 		}else if (params.mode =='child'){
-	    	params.filter = ''' (d.title LIKE $P{searchtext} OR d.din LIKE $P{searchtext}) AND dt.state IN ('processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+	    	params.filter = ''' (d.din LIKE $P{searchtext}
+							OR d.title LIKE $P{searchtext}
+							OR d.description LIKE $P{searchtext}
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+		}else if (params.mode =='offline'){
+	    	params.filter = ''' (d.din LIKE $P{searchtext}
+							OR d.title LIKE $P{searchtext}
+							OR d.description LIKE $P{searchtext}
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing','enroute') AND dt.enddate IS NULL'''
 		}else{
 			return null
 		}
-		return em.getDocumentbyDIN(params)
+		def doc = em.getDocumentbyDIN(params)
+		doc.each{
+			it.documenttype = emdoctype.findById([objid:it.documenttypeid])
+		}
+		return doc
 		
     }
 
-    
+   
 
     void beforeList(params){
 		if (params == null) params = [:]
@@ -172,6 +224,7 @@ public class TagabukidDTSService  {
 
 	}
 
+
 	@ProxyMethod
     public void processDocument(entity){
     	entity.document.each{doc->
@@ -188,6 +241,9 @@ public class TagabukidDTSService  {
 			}
 			// println entity
 			entity.prevtask = getprevtask(doc)
+			if (!entity.prevtask){
+				throw new Exception("Data may have changed. Please close the window and try again.");
+			}
 			// println entity.prevtask
     		closeprevtask(entity,doc)
     		if(entity.destinations){
@@ -222,6 +278,11 @@ public class TagabukidDTSService  {
     	return taskem.findPrevTask([refid:doc.objid,filter:filter,userorgid:getUserOrg(env.USERID).organizationid,taskid:doc.taskid]);
    	}
 
+   	public def getprevtaskbyid(doc){
+    	def filter = ''' AND dt.objid = $P{taskid} '''
+    	return taskem.findPrevTask([refid:doc.refid,filter:filter,taskid:doc.taskid]);
+   	}
+
     void addChild(o,doc){
     	taskem.changeRight([myleft:o.prevtask.lft,refid:doc.objid])
 		taskem.changeLeft([myleft:o.prevtask.lft,refid:doc.objid])
@@ -243,19 +304,22 @@ public class TagabukidDTSService  {
 						case "local":
 							state = 'enroute'
 							org.organizationid = o.org.OrgUnitId.toString()
-							org.name = o.org.name
+							org.orgname = o.org.name
+							org.orgcode = o.org.code
 							org.address = 'LOCAL'
 							break;
 						case "nonlocal":
 							state = 'closed'
 							org.organizationid = 'NONLOCAL'
-							org.name = o.org.name
+							org.orgname = o.org.name
+							org.orgcode = o.org.code
 							org.address = 'NONLOCAL'
 							break;
 						case "multiplelocal":
 							state = 'enroute'
 							org.organizationid = o.org.OrgUnitId.toString()
-							org.name = o.org.name
+							org.orgname = o.org.name
+							org.orgcode = o.org.code
 							org.address = 'LOCAL'
 							break;	
 						case "multiplenonlocal":
@@ -268,18 +332,26 @@ public class TagabukidDTSService  {
 					break;
 				case "outgoing":
 					state = 'outgoing'
+					org.organizationid = o.org.OrgUnitId.toString()
+					org.orgname = o.org.name
+					org.orgcode = o.org.code
+					org.address = 'LOCAL'
 					break;
 				case "receive":
 					state = 'processing'
 					break;	
 				case "archive":
 					state = 'archive'
-					doc.message = doc.message +  " - Cabinet Code:" + o.cabinetcode +" , Folder Code: " +  o.foldercode
+					doc.message = "Cabinet Code:" + o.cabinetcode +" , Folder Code: " +  o.foldercode
+					org.organizationid = o.org.OrgUnitId.toString()
+					org.orgname = o.org.name
+					org.orgcode = o.org.code
+					org.address = 'LOCAL'
 					break;	
 				default:
 					break;
 			}  
-
+	
     	def newtask = [
 			objid          : 'TSK' + new java.rmi.server.UID(),
 			refid          : doc.objid,
@@ -304,13 +376,43 @@ public class TagabukidDTSService  {
 			taskid:newtask.objid,
 			orgid:org.organizationid,
 			macaddress:env.MACADDRESS,
-			name:org.name,
+			name:org.orgname,
+			code:org.code,
 			address:org.address,
 		]
 
 
     	taskem.save(newtask)
     	taskem.save(newtaskorg,'document_task_org')
+    	if (o.mode == 'send' && o.sendtype.matches('local|multiplelocal')){
+    		//remove outoing task if any
+    		def notification = notifyem.getByObjid([objid: o.prevtask.objid])
+			notification.each{
+				notificationService.removeMessage([objid: o.prevtask.objid]); 
+			}
+
+
+			def userorg = emuserorg.getUserByOrg([orgid:org.organizationid])
+			userorg.each{
+				it.task = newtask
+				it.doc = doc
+				it.documenttype = emdoctype.findById([objid:doc.documenttypeid])
+			}
+			notifyMessage(userorg)
+    	}else if (o.mode == 'outgoing'){
+			def userorg = emuserorg.getUserByOrg([orgid:org.organizationid])
+			userorg.each{
+				it.task = newtask
+				it.doc = doc
+				it.documenttype = emdoctype.findById([objid:doc.documenttypeid])
+			}
+			notifyMessage(userorg)
+    	}else if (o.mode == 'receive'){
+	    	def notification = notifyem.getByObjid([objid: o.prevtask.objid])
+			notification.each{
+				notificationService.removeMessage([objid: o.prevtask.objid]); 
+			}
+    	}
 		
     	
     }
@@ -327,10 +429,14 @@ public class TagabukidDTSService  {
 
     @ProxyMethod
     public def open(o){
-    	println o
-    	if (o.objid){
+
+    	if (o.objid && o.taskid){
     		o.filter = ''' d.objid = $P{objid} AND dt.objid = $P{taskid} ''';
-    	}else{
+    	}
+    	else if (o.objid){
+    		o.filter = ''' d.objid = $P{objid} ''';
+    	}
+    	else{
     		o.filter = ''' d.din = $P{barcodeid} ''';
     	}
     	o = em.findDocumentbyBarcode(o)
@@ -342,6 +448,8 @@ public class TagabukidDTSService  {
     		o.child = em.getDocumentbyBarcode(o)
     	}
     	// o.documenttype = emdoctype.findById([objid:o.documenttypeid])
+    	o.currentuser = env.USERID
+    	println o.currentuser
 		return o
 		
     }
@@ -367,6 +475,30 @@ public class TagabukidDTSService  {
     @ProxyMethod
     public def createOfflineLog(o){
     		// println o
+    		if (!o.prevtask){
+    			o.prevtask = [
+    				taskid          : o.taskid,
+					refid          : o.refid,
+					parentprocessid: null,
+					lft			   : o.lft,
+					rgt			   : o.rgt,
+					state          : o.state,
+					startdate      : o.startdate,
+					enddate		   : o.enddate,
+					assignee_objid : o.assignee.objid,
+					assignee_name  : o.assignee.name,
+					assignee_title : o.assignee.title,
+					actor_objid    : o.actor.objid,
+					actor_name     : o.actor.name,
+					actor_title    : o.actor.title,
+					message        : o.message,
+    			]
+
+    			o.task = [
+    				lft : 0,
+    				rgt : 0,
+    			]
+    		}
     		closeofflineprevtask(o)
     		addOfflineChild(o)
 			o.task.lft = o.prevtask.lft + 1
@@ -418,7 +550,8 @@ public class TagabukidDTSService  {
 			taskid:newtask.objid,
 			orgid:org.organizationid,
 			macaddress:env.MACADDRESS,
-			name:org.name,
+			name:org.orgname,
+			code:org.orgcode,
 			address:org.address,
 		]
 
@@ -426,7 +559,10 @@ public class TagabukidDTSService  {
     	taskem.save(newtask)
     	taskem.save(newtaskorg,'document_task_org')
 		
-    	
+    	def notification = notifyem.getByObjid([objid: o.prevtask.objid])
+		notification.each{
+			notificationService.removeMessage([objid: o.prevtask.objid]); 
+		}
     }
 
       void createnewofflinetask(o){
@@ -476,7 +612,8 @@ public class TagabukidDTSService  {
 			taskid:newtask.objid,
 			orgid:org.organizationid,
 			macaddress:env.MACADDRESS,
-			name:org.name,
+			name:org.orgname,
+			code:org.orgcode,
 			address:org.address,
 		]
 
@@ -486,4 +623,104 @@ public class TagabukidDTSService  {
 		
     	
     }
+
+    @ProxyMethod
+	public void notifyMessage(def o) {
+		o.each {
+	  		def m = [
+	            objid     		: it.task.objid, 
+	            senderid  		: env.USERID,
+	            sender    		: env.FULLNAME,
+	            recipientid   	: it.objid,
+	            recipienttype 	: 'user',
+	            message   		: 'INCOMING ' + it.doc.din + ':' + it.documenttype.name + "|FROM: " + getUserOrg(env.USERID).orgcode,
+	            filetype  		: 'document_incoming',
+	            data 	  		: [objid:it.doc.objid,taskid:it.task.objid],
+	        ];
+	        notificationService.addMessage( m );	
+		}
+	}
+
+	@ProxyMethod
+    public def createRedFlagLog(o){
+    		o.prevtask = getprevtaskbyid(o)
+    		o.state = 'redflag'
+    		//println o
+    		closeredflagprevtask(o)
+    		addRedFlagChild(o)
+			o.tasklft = o.prevtask.lft + 1
+			o.taskrgt = o.prevtask.lft + 2
+			createredflagtask(o)
+			
+    }
+
+    void addRedFlagChild(o){
+    	taskem.changeRight([myleft:o.prevtask.lft,refid:o.refid])
+		taskem.changeLeft([myleft:o.prevtask.lft,refid:o.refid])
+    }
+
+    void closeredflagprevtask(o){
+    	def filter = ''' AND dt.objid = $P{taskid} '''
+    	taskem.closePrevTask([enddate:dtSvc.serverDate,refid:o.refid,filter:filter,taskid:o.prevtask.taskid]);
+    }
+
+    void createredflagtask(o){
+    	def org = getUserOrg(env.USERID)
+    	
+    	def newtask = [
+			objid          : 'TSK' + new java.rmi.server.UID(),
+			refid          : o.refid,
+			parentprocessid: null,
+			lft			   : o.tasklft,
+			rgt			   : o.taskrgt,
+			state          : o.state,
+			startdate      : dtSvc.serverDate,
+			assignee_objid : env.USERID,
+			assignee_name  : env.FULLNAME,
+			assignee_title : env.JOBTITLE,
+			actor_objid    : env.USERID,
+			actor_name     : env.FULLNAME,
+			actor_title    : env.JOBTITLE,
+			message        : o.message,
+		]
+
+		
+		
+		def newtaskorg = [
+			taskid:newtask.objid,
+			orgid:(o.state == 'redflag'? o.org.OrgUnitId.toString() : org.organizationid),
+			macaddress:(o.state == 'redflag'? o.org.Entity.Name.toString(): env.MACADDRESS),
+			name:(o.state == 'redflag'? o.org.Entity.Name.toString() : org.orgname),
+			code:(o.state == 'redflag'? o.org.Entity.AcronymAbbreviation.toString() : org.orgcode),
+			address:(o.state == 'redflag'? "LOCAL" : org.address),
+		]
+
+
+    	taskem.save(newtask)
+    	taskem.save(newtaskorg,'document_task_org')
+    }
+
+
+	@ProxyMethod
+    public def createRedFlagResolveLog(o){
+    		o.prevtask = getprevtaskbyid(o)
+    		o.state = 'processing'
+    		closeredflagprevtask(o)
+    		addRedFlagChild(o)
+			o.tasklft = o.prevtask.lft + 1
+			o.taskrgt = o.prevtask.lft + 2
+			createredflagtask(o)
+    }
+
+    @ProxyMethod
+    public def lookupNode(params){
+		def childtask = taskem.getChildTask([refid:params.refid,taskid:params.taskid])
+		params.searchtext = '%'
+		params.filter =  "AND dt.objid IN ('" + childtask.taskid.join("','") + "')";
+		return em.getList(params)
+
+    }
+
+    
+
 }
