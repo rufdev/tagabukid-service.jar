@@ -170,33 +170,46 @@ public class TagabukidDTSService  {
 
 	@ProxyMethod
     public def lookupDIN(params){
+   		def docs = []
+   
     	beforeList(params)
     	params.filter = ''
     	params.actorobjid = env.USERID
     	params.userorgid = getUserOrg(env.USERID).organizationid
-    
+    	params.seleteddocs = ''
+    	params.document.each{
+    		docs.push(it.objid)
+    	}
+
     	if (params.mode.matches('send|outgoing|archive')){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
 							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL 
+							'''
 		}else if (params.mode =='receive'){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
 							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('enroute') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('enroute') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL
+							'''
 		}else if (params.mode =='child'){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
 							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL'''
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL
+							'''
 		}else if (params.mode =='offline'){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
 							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing','enroute') AND dt.enddate IS NULL'''
+							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing','enroute') AND dt.enddate IS NULL 
+							'''
 		}else{
 			return null
+		}
+		if (docs.size > 0){
+			params.filter = params.filter + "AND d.objid NOT IN ('" + docs.join("','")+ "')"
 		}
 		def doc = em.getDocumentbyDIN(params)
 		doc.each{
@@ -720,8 +733,7 @@ public class TagabukidDTSService  {
     	taskem.save(newtaskorg,'document_task_org')
     }
 
-
-	@ProxyMethod
+@ProxyMethod
     public def createRedFlagResolveLog(o){
     		o.prevtask = getprevtaskbyid(o)
     		o.state = 'processing'
@@ -731,6 +743,7 @@ public class TagabukidDTSService  {
 			o.taskrgt = o.prevtask.lft + 2
 			createredflagtask(o)
     }
+	
 
     @ProxyMethod
     public def lookupNode(params){

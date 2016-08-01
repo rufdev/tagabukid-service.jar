@@ -1,13 +1,17 @@
 [getList]
 SELECT * 
 FROM user_organization
+WHERE 
+${filter} 
 
 [getEtracsUser]
 SELECT *
 FROM sys_user
 WHERE (username LIKE $P{searchtext} 
-OR name LIKE $P{searchtext})
-${filter} 
+OR name LIKE $P{searchtext}
+OR firstname LIKE $P{searchtext}
+OR lastname LIKE $P{searchtext}
+OR middlename LIKE $P{searchtext})
 ORDER BY lastname
 
 [getOrgById]
