@@ -233,3 +233,21 @@ WHERE prefix = $P{prefix}
 AND $P{sequence} BETWEEN startseries AND endseries
 AND orgid = $P{orgid}
 
+[findDocStatsByOrg]
+SELECT COUNT(*) AS TOTAL,
+       SUM(IF(dt.state = "outgoing",1,0)) AS OUTGOING,
+       SUM(IF(dt.state = "enroute",1,0)) AS ENROUTE,
+       SUM(IF(dt.state = "processing",1,0)) AS PROCESSING,
+       SUM(IF(dt.state = "archive",1,0)) AS ARCHIVE,
+       SUM(IF(dt.state = "attached",1,0)) AS ATTACHED
+	
+FROM document d
+INNER JOIN user_organization ug ON ug.objid = d.`recordlog_createdbyuserid`
+INNER JOIN document_task dt ON dt.`refid` = d.`objid`
+INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
+INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
+WHERE (dt.enddate IS NULL 
+OR dt.state IN ('attached','ARCHIVE','closed')) 
+AND dto.orgid = 'bacb54b6-912e-4167-bd9b-7b361e83a8e7'
+ORDER BY d.title, dt.startdate
+

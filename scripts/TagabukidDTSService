@@ -68,7 +68,12 @@ public class TagabukidDTSService  {
 		if(o.documenttype.haschild){
 			o.child.each{
 				em.updateparent([parentid:o.objid,objid:it.objid])
-				taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'attached',message:'Attached to document no. ' + o.din]);
+				if(it.linked){
+					taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'processing',message:'Linked to document no. ' + o.din]);
+				}else{
+					taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'attached',message:'Attached to document no. ' + o.din]);
+				}
+				
 			}
 		}
 
@@ -218,8 +223,6 @@ public class TagabukidDTSService  {
 		return doc
 		
     }
-
-   
 
     void beforeList(params){
 		if (params == null) params = [:]
@@ -754,6 +757,9 @@ public class TagabukidDTSService  {
 
     }
 
-    
+    @ProxyMethod
+    public def getStats(){
+    	return em.findDocStatsByOrg([userorgid:getUserOrg(env.USERID).organizationid])
+    }
 
 }
