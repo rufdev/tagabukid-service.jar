@@ -762,4 +762,29 @@ public class TagabukidDTSService  {
     	return em.findDocStatsByOrg([userorgid:getUserOrg(env.USERID).organizationid])
     }
 
+
+     @ProxyMethod
+    public void cancelSend(doc){
+    	def tasktodelete = taskem.findTask([objid:doc.taskid])
+    	def parenttask = taskem.findParentNode([refid:doc.objid,taskid:doc.taskid])
+    	def childtask = taskem.getChildTasks([refid:doc.objid,taskid:doc.taskid])
+    	tasktodelete.width = tasktodelete.rgt - tasktodelete.lft + 1
+    	if(childtask.size > 1){
+    		taskem.deleteTaskById([taskid:doc.taskid])
+	    	taskem.updateDeletedTaskrgt([mywidth:tasktodelete.width,myrgt:tasktodelete.rgt,refid:doc.objid])
+	    	taskem.updateDeletedTasklft([mywidth:tasktodelete.width,myrgt:tasktodelete.rgt,refid:doc.objid])
+    	}else{
+    		taskem.deleteTask([mylft:parenttask.lft,myrgt:parenttask.rgt,refid:doc.objid])
+	    	taskem.updateDeletedTaskrgt([mywidth:tasktodelete.width,myrgt:tasktodelete.rgt,refid:doc.objid])
+	    	taskem.updateDeletedTasklft([mywidth:tasktodelete.width,myrgt:tasktodelete.rgt,refid:doc.objid])
+	    	taskem.updateParentNode([taskid:parenttask.objid])
+    	}
+    	// println parenttask
+    	def notification = notifyem.getByObjid([objid: doc.taskid])
+		notification.each{
+			notificationService.removeMessage([objid: doc.taskid]); 
+		}
+    	
+    	
+    }
 }

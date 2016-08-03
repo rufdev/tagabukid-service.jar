@@ -115,7 +115,7 @@ OR d.title LIKE $P{searchtext}
 OR d.description LIKE $P{searchtext}
 OR d.tags LIKE $P{searchtext})
 ${filter}
-ORDER BY d.title, dt.startdate
+ORDER BY dt.startdate
 
 [findDocumentbyBarcode]
 SELECT d.objid,

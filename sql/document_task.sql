@@ -4,6 +4,49 @@ INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 SET dt.enddate = $P{enddate}
 WHERE dt.refid = $P{refid} AND dt.enddate IS NULL ${filter}
 
+[deleteTask]
+DELETE FROM document_task WHERE lft > $P{mylft} AND rgt < $P{myrgt} AND refid = $P{refid}
+
+[deleteTaskById]
+DELETE FROM document_task WHERE objid = $P{taskid}
+
+[updateDeletedTaskrgt]
+UPDATE document_task SET rgt = rgt - $P{mywidth} WHERE rgt > $P{myrgt} AND refid = $P{refid}
+
+[updateDeletedTasklft]
+UPDATE document_task SET lft = lft - $P{mywidth} WHERE lft > $P{myrgt} AND refid = $P{refid}
+
+[findTask]
+SELECT * FROM document_task WHERE objid = $P{objid}
+
+[findParentNode]
+SELECT * FROM 
+(SELECT node.*, (COUNT(parent.objid) - 1) AS depth
+FROM document_task AS node,
+document_task AS parent
+WHERE node.lft BETWEEN parent.lft AND parent.rgt
+AND node.refid = $P{refid}
+AND parent.refid = $P{refid}
+GROUP BY node.objid
+ORDER BY node.lft)xx
+WHERE depth = (SELECT (COUNT(parent.objid) - 1) AS depth
+FROM document_task AS node,
+document_task AS parent
+WHERE node.lft BETWEEN parent.lft AND parent.rgt
+AND node.refid = $P{refid}
+AND parent.refid = $P{refid}
+AND node.`objid` = $P{taskid}
+GROUP BY node.objid
+ORDER BY node.lft) - 1;
+
+[updateParentNode]
+UPDATE document_task SET enddate = NULL WHERE objid = $P{taskid}
+
+[cancelSend]
+UPDATE document_task dt
+SET dt.enddate = NULL
+WHERE dt.refid = $P{refid} AND objid = $P{taskid}
+
 [getTaskListByRef2]
 SELECT dt.*,dto.*
 FROM ${taskTablename} dt
@@ -68,3 +111,23 @@ GROUP BY node.objid
 ORDER BY node.lft)xx
 INNER JOIN document_task_org dto ON dto.`taskid` = xx.`objid`
 WHERE xx.depth = 1;
+
+[getChildTasks]
+SELECT * FROM 
+(SELECT node.*, (COUNT(parent.objid) - 1) AS depth
+FROM document_task AS node,
+document_task AS parent
+WHERE node.lft BETWEEN parent.lft AND parent.rgt
+AND node.refid = $P{refid}
+AND parent.refid = $P{refid}
+GROUP BY node.objid
+ORDER BY node.lft)xx
+WHERE depth = (SELECT (COUNT(parent.objid) - 1) AS depth
+FROM document_task AS node,
+document_task AS parent
+WHERE node.lft BETWEEN parent.lft AND parent.rgt
+AND node.refid = $P{refid}
+AND parent.refid = $P{refid}
+AND node.`objid` = $P{taskid}
+GROUP BY node.objid
+ORDER BY node.lft)

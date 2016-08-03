@@ -34,9 +34,11 @@ class TagabukidDTSAllListService extends ActiveCrudListService  {
 		cols <<	[name:'din', caption:'DIN', width:120, resizable:false];
 		cols <<	[name:'state', caption:'State', width:120, resizable:false];
 		cols <<	[name:'title', caption:'Title', width:130];
+		cols <<	[name:'documenttype.name', caption:'Document Type', width:130];
 		cols << [name:'recordlog.datecreated', caption:'Date Created', width:130, resizable:false];
 		cols <<	[name:'recordlog.createdbyuser', caption:'Created By', width:130, resizable:false];
-		//cols <<	[name:'actor.name', caption:'OIC/Liaison', width:130, resizable:false];
+		cols <<	[name:'orgname', caption:'Origin', width:130];
+		cols <<	[name:'actor.name', caption:'OIC/Liaison', width:130, resizable:false];
 		//cols <<	[name:'assignee.name', caption:'Performed By', width:130, resizable:false];
 		cols <<	[name:'name', caption:'Location', width:140, resizable:true];
 		return cols;
