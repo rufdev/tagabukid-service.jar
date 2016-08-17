@@ -17,4 +17,10 @@
 		<field name="recordlog_lastupdatedbyuserid" required="true"/>
 		<field name="recordlog_lastupdatedbyuser" required="true"/>
 	</element>
+
+	<element name="documentlink" tablename="document_link">
+		<field name="objid" primary="true"/>
+		<field name="documentchildid" primary="true"/>
+		<field name="taskid" required="true"/>
+	</element>
 </schema>

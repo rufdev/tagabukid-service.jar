@@ -20,7 +20,7 @@ class TagabukidLegislativeArchiveService extends ActiveCrudListService
 	@Service('TagabukidOrdinanceEntityLookUpService')
 	def oreSvc
 
-	@Service('TagaBukidDBImageService')
+	@Service('TagabukidDBImageService')
 	def imgSvc
 	
 	@Service('LogService')

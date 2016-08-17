@@ -4,7 +4,7 @@ import com.rameses.services.extended.*
 import com.rameses.util.*
 
 
-class TagaBukidTCReportService  
+class TagabukidTCReportService  
 { 
 	@ActiveDB('tagabukidtcreport')
 	def adb 

@@ -25,6 +25,11 @@ public class TagabukidDTSLookupService
 	}
 
 	@ProxyMethod
+	public def lookupUserOrg( params ) {
+		return util.lookup( 'dts:getUserOrg', params,'orgid' )
+	}
+
+	@ProxyMethod
 	public def lookupDocumentType( params ) {
 		return util.lookup( 'documenttype:getList', params,'objid' )
 	}

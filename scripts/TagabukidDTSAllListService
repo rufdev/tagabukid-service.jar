@@ -50,21 +50,28 @@ class TagabukidDTSAllListService extends ActiveCrudListService  {
 		//int activeyear = dateSvc.getServerYear();
 		def userorgid  = dtssvc.getUserOrg(env.USERID).organizationid
 		o.userorgid = userorgid
+
+		o.filter += ''' AND (d.din LIKE $P{searchtext}
+		OR d.title LIKE $P{searchtext}
+		OR d.description LIKE $P{searchtext})'''
+
 		switch(o.name) {
 			case 'search':
-				if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "%";
-				o.filter = ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed'))''';
+				if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "?";
+				else{
+				o.filter += ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed'))''';
+				}
 				break;
 				
 			//--------------- processing--------------------	
 			case 'idle':
 				o.state = 'idle';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
+				o.filter += ''' AND dt.state = $P{state} AND dt.enddate IS NULL''';
 				break;
 
 			case 'outgoing':
 				o.state = 'outgoing';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL ''';
+				o.filter += ''' AND dt.state = $P{state} AND dt.enddate IS NULL ''';
 				break;
 
 			case 'enroute':
@@ -74,12 +81,12 @@ class TagabukidDTSAllListService extends ActiveCrudListService  {
 
 			case 'processing':
 				o.state = 'processing';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL ''';
+				o.filter +=  ''' AND dt.state IN ('processing','linked') AND dt.enddate IS NULL ''';
 				break;
 
 			case 'archive':
 				o.state = 'archive';
-				o.filter = ''' AND dt.state IN ('attached','archive','closed') ''';
+				o.filter += ''' AND dt.state IN ('attached','archive','closed') ''';
 				break;
 
 			default:

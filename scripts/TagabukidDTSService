@@ -11,6 +11,9 @@ public class TagabukidDTSService  {
 	@Service("SequenceService")
 	def seqSvc;
 
+	@ActiveDB("dts")
+	def emain
+
 	@ActiveDB(value='dts', em='tagabukid_etracs')
 	def em
 
@@ -26,11 +29,14 @@ public class TagabukidDTSService  {
 	@ActiveDB(value='document_redflag', em='notification') 
     def notifyem; 
 
-	@Service("TagaBukidRedflagService")
+	@Service("TagabukidRedflagService")
 	def redflagSvc;
 
 	@Service('NotificationService')
 	def notificationService
+
+	@ActiveDB("af_inventory")
+	def eminv
 
 	@Env
 	def env;
@@ -67,17 +73,97 @@ public class TagabukidDTSService  {
 		def task = inittask(o);
 		if(o.documenttype.haschild){
 			o.child.each{
-				em.updateparent([parentid:o.objid,objid:it.objid])
-				if(it.linked){
-					taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'processing',message:'Linked to document no. ' + o.din]);
-				}else{
-					taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'attached',message:'Attached to document no. ' + o.din]);
-				}
+				
+				
+				def taskid = createchildlog(o,it)
+				def doclink = [
+					objid:o.objid,
+					documentchildid :it.objid,
+					taskid: taskid
+				]
+				em.create(doclink, 'documentlink')
+				// em.updateparent([parentid:o.objid,objid:it.objid])
+				// if(it.linked){
+				// 	taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'processing',message:'Linked to document no. ' + o.din]);
+				// }else{
+				// 	taskem.attachChildTask([parentprocessid:task.objid,enddate:dtSvc.serverDate,refid:it.objid,state:'attached',message:'Attached to document no. ' + o.din]);
+				// }
 				
 			}
 		}
 
 		return o;
+    }
+
+    public def createchildlog(doc,o){
+    		if (o.state != 'attached'){
+    			closechildtask(o)
+    		}
+    		addChildattached(o)
+			o.newlft = o.lft + 1
+			o.newrgt = o.lft + 2
+			if (o.linked){
+				o.state = 'linked'
+				o.startdate = dtSvc.serverDate
+				o.enddate = null
+				o.message = 'Linked to document no. ' + doc.din
+			}else{
+				o.state = 'attached'
+				o.startdate = dtSvc.serverDate
+				o.enddate = dtSvc.serverDate
+				o.message = 'Attached to document no. ' + doc.din
+			}
+
+			return createchildtask(o)
+    }
+
+    void addChildattached(o){
+    	taskem.changeRight([myleft:o.lft,refid:o.objid])
+		taskem.changeLeft([myleft:o.lft,refid:o.objid])
+    }
+
+    void closechildtask(o){
+    	def filter = ''' AND dto.orgid = $P{userorgid} AND dt.objid = $P{taskid} '''
+    	taskem.closePrevTask([enddate:dtSvc.serverDate,refid:o.refid,filter:filter,userorgid:getUserOrg(env.USERID).organizationid,taskid:o.taskid]);
+    }
+
+    public def createchildtask(o){
+    	def org = getUserOrg(env.USERID)
+ 		
+    	def newtask = [
+			objid          : 'TSK' + new java.rmi.server.UID(),
+			refid          : o.refid,
+			parentprocessid: null,
+			lft			   : o.newlft,
+			rgt			   : o.newrgt,
+			state          : o.state,
+			startdate      : o.startdate,
+			enddate		   : o.enddate,
+			assignee_objid : env.USERID,
+			assignee_name  : env.FULLNAME,
+			assignee_title : env.JOBTITLE,
+			actor_objid    : env.USERID,
+			actor_name     : env.FULLNAME,
+			actor_title    : env.JOBTITLE,
+			message        : o.message,
+		]
+
+		
+		
+		def newtaskorg = [
+			taskid:newtask.objid,
+			orgid:org.organizationid,
+			macaddress:env.MACADDRESS,
+			name:org.orgname,
+			code:org.orgcode,
+			address:org.address,
+		]
+
+
+    	taskem.save(newtask)
+    	taskem.save(newtaskorg,'document_task_org')
+    	return newtask.objid
+    	
     }
 
 	public def createdin(def o) {
@@ -186,29 +272,31 @@ public class TagabukidDTSService  {
     		docs.push(it.objid)
     	}
 
-    	if (params.mode.matches('send|outgoing|archive')){
+    	if (params.mode.matches('outgoing')){
+    		params.filter = ''' (d.din LIKE $P{searchtext}
+							OR d.title LIKE $P{searchtext}
+							OR d.description LIKE $P{searchtext}) AND dt.state IN ('idle','processing','linked') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL 
+							'''
+    	}
+    	else if (params.mode.matches('send|archive')){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
-							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL 
+							OR d.description LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing','linked') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL 
 							'''
 		}else if (params.mode =='receive'){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
-							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('enroute') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL
+							OR d.description LIKE $P{searchtext}) AND dt.state IN ('enroute') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL
 							'''
 		}else if (params.mode =='child'){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
-							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('processing') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL
+							OR d.description LIKE $P{searchtext}) AND dto.orgid = $P{userorgid} AND ((dt.state IN ('processing','linked') AND dt.enddate IS NULL) OR (dt.state = 'attached'))
 							'''
 		}else if (params.mode =='offline'){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
-							OR d.description LIKE $P{searchtext}
-							OR d.tags LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing','enroute') AND dt.enddate IS NULL 
+							OR d.description LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing','enroute') AND dt.enddate IS NULL 
 							'''
 		}else{
 			return null
@@ -270,7 +358,6 @@ public class TagabukidDTSService  {
 					addChild(entity,doc)
 					entity.lft = entity.prevtask.lft + 1
 					entity.rgt = entity.prevtask.lft + 2
-				
 					createnewtask(entity,doc)
 					count ++
 				}
@@ -299,16 +386,19 @@ public class TagabukidDTSService  {
     	return taskem.findPrevTask([refid:doc.refid,filter:filter,taskid:doc.taskid]);
    	}
 
+   	//add ka og child
     void addChild(o,doc){
     	taskem.changeRight([myleft:o.prevtask.lft,refid:doc.objid])
 		taskem.changeLeft([myleft:o.prevtask.lft,refid:doc.objid])
     }
 
+    //add ka og node kibali igsuon sa child
     void addNode(o,doc){
     	taskem.changeRight([myleft:o.prevtask.rgt,refid:doc.objid])
 		taskem.changeLeft([myleft:o.prevtask.rgt,refid:doc.objid])
     }
 
+    
 
     void createnewtask(o,doc){
     	def org = getUserOrg(env.USERID)
@@ -382,8 +472,6 @@ public class TagabukidDTSService  {
 			message        : doc.message,
 		]
 
-		
-		
 		def newtaskorg = [
 			taskid:newtask.objid,
 			orgid:org.organizationid,
@@ -396,6 +484,8 @@ public class TagabukidDTSService  {
 
     	taskem.save(newtask)
     	taskem.save(newtaskorg,'document_task_org')
+
+
     	if (o.mode == 'send' && o.sendtype.matches('local|multiplelocal')){
     		//remove outoing task if any
     		def notification = notifyem.getByObjid([objid: o.prevtask.objid])
@@ -448,7 +538,7 @@ public class TagabukidDTSService  {
 
     @ProxyMethod
     public def open(o){
-
+    	println o
     	if (o.objid && o.taskid){
     		o.filter = ''' d.objid = $P{objid} AND dt.objid = $P{taskid} ''';
     	}
@@ -460,15 +550,16 @@ public class TagabukidDTSService  {
     	}
     	o = em.findDocumentbyBarcode(o)
     	//def documenttype = emdoctype.findById([objid:o.documenttypeid])
-
+    
     	if(o.documenttype.haschild){
-    		o.filter = ''' d.parentid = $P{objid} ''';
+    		o.filter = ''' dl.objid = $P{objid} ''';
     		o.child = []
-    		o.child = em.getDocumentbyBarcode(o)
+    		o.child = em.getDocumentChild(o)
     	}
     	// o.documenttype = emdoctype.findById([objid:o.documenttypeid])
     	o.currentuser = env.USERID
-    	println o.currentuser
+    	o.currentorg = getUserOrg(env.USERID).organizationid
+    
 		return o
 		
     }
@@ -787,4 +878,27 @@ public class TagabukidDTSService  {
     	
     	
     }
+
+    @ProxyMethod
+    public def doncarlosafinventorydetail(doc){
+
+    	def items = emain.getaftemp()
+    	items.each{ i ->
+    		println i.controlid + " -> START"
+    		def details = emain.getdetails([controlid:i.controlid])
+    		def x = 0
+    		details.each{
+    			x = x + 1
+    			it.lineno = i.lineno + x
+    			it.objid = 'PICTD' + new java.rmi.server.UID()
+    			eminv.create(it,'detail')
+
+    		}
+    		println i.controlid + " -> DONE"
+    	}
+
+    	return "done"
+    }
+
+
 }

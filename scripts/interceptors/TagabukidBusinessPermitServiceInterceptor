@@ -12,6 +12,9 @@ class TagabukidBusinessPermitServiceInterceptor {
 
     @Service('DateService')
     def dtSvc 
+
+    @ActiveDB("business_payment")
+    def em;
 	
 	@After(pattern="BusinessPermitService.getReport")
 	public def addParameters(def evt) { 
@@ -25,5 +28,7 @@ class TagabukidBusinessPermitServiceInterceptor {
         perm.issuemonth    = util.getMonthName(pdate.month)
         perm.issueyear     = pdate.year +''
         perm.issueplace    = paramSvc.standardParameter.LGUFORMALNAME
+        perm.lobs1 = perm.lobs
+        perm.paymentitem = em.getItems([objid:perm.objid])
     }
 }

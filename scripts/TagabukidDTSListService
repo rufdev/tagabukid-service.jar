@@ -50,66 +50,51 @@ class TagabukidDTSListService extends ActiveCrudListService  {
 		//int activeyear = dateSvc.getServerYear();
 		def userorgid  = dtssvc.getUserOrg(env.USERID).organizationid
 		o.userorgid = userorgid
+
+		
+		o.filter += ''' AND (d.din LIKE $P{searchtext}
+		OR d.title LIKE $P{searchtext}
+		OR d.description LIKE $P{searchtext})'''
+	
+
 		switch(o.name) {
 			case 'search':
-				if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "%";
-				o.filter = ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed')) AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
-				FROM document_task t2 
-				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
-				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
-				ORDER BY t2.rgt-dt.rgt ASC
-				LIMIT 1) = $P{userorgid})''';
+					if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "?";
+					else{
+						o.filter += ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed')) AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR ug2.organizationid = $P{userorgid})''';	
+					}
+				// if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "%";
 				break;
 				
 			//--------------- processing--------------------	
 			case 'idle':
+				
 				o.state = 'idle';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
-				FROM document_task t2 
-				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
-				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
-				ORDER BY t2.rgt-dt.rgt ASC
-				LIMIT 1) = $P{userorgid})''';
+				o.filter += ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR ug2.organizationid = $P{userorgid})''';
 				break;
 
 			case 'outgoing':
+				
 				o.state = 'outgoing';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
-				FROM document_task t2 
-				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
-				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
-				ORDER BY t2.rgt-dt.rgt ASC
-				LIMIT 1) = $P{userorgid})''';
+				o.filter += ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR ug2.organizationid = $P{userorgid})''';
 				break;
 
 			case 'enroute':
+				
 				o.state = 'enroute';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
-				FROM document_task t2 
-				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
-				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
-				ORDER BY t2.rgt-dt.rgt ASC
-				LIMIT 1) = $P{userorgid})''';
+				o.filter += ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (dto.orgid = $P{userorgid} OR ug2.organizationid = $P{userorgid})''';
 				break;
 
 			case 'processing':
+				
 				o.state = 'processing';
-				o.filter = ''' AND dt.state = $P{state} AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
-				FROM document_task t2 
-				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
-				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
-				ORDER BY t2.rgt-dt.rgt ASC
-				LIMIT 1) = $P{userorgid})''';
+				o.filter += ''' AND dt.state IN ('processing','linked') AND dt.enddate IS NULL AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid})''';
 				break;
 
 			case 'archive':
+				
 				o.state = 'archive';
-				o.filter = ''' AND dt.state IN ('attached','archive','closed') AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid} OR (SELECT dto.orgid
-				FROM document_task t2 
-				INNER JOIN document_task_org dto ON dto.taskid = t2.objid
-				WHERE t2.lft < dt.lft AND t2.rgt > dt.rgt    
-				ORDER BY t2.rgt-dt.rgt ASC
-				LIMIT 1) = $P{userorgid})''';
+				o.filter += ''' AND dt.state IN ('attached','archive','closed') AND (ug.organizationid = $P{userorgid} OR dto.orgid = $P{userorgid})''';
 				break;
 
 			default:

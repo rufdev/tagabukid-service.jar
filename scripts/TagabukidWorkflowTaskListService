@@ -45,6 +45,11 @@ class TagabukidWorkflowTaskListService extends ActiveListService {
 				it.title = 'Processing in ' + org.Entity[0].AcronymAbbreviation;
 				break;
 
+			case 'linked':
+				def org = empostref.getOrgById([orgid:"'"+it.orgid+"'"])
+				it.title = 'LINKED';
+				break;
+
 			case 'archive':
 				def org = empostref.getOrgById([orgid:"'"+it.orgid+"'"])
 				it.title = 'Archived at ' + org.Entity[0].AcronymAbbreviation;
