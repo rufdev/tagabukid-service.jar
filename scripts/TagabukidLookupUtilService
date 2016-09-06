@@ -96,7 +96,7 @@ class TagabukidLookupUtilService
 	public def lookupPeedmo( namedsql, params, pagingKeys) {
 		if (! params) params = [:]
 		params.searchtext = (params.searchtext && params.searchtext.trim().length() > 0 ? params.searchtext : '') + '%'
-
+	
 		def qry = empeedmo.sqlContext.createNamedQuery(namedsql)
 		
 		if (pagingKeys){

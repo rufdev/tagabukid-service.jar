@@ -10,6 +10,31 @@ public class TagabukidService  {
 	@ActiveDB(value='test', em='tagabukid_etracs')
 	def em
 
+	@ActiveDB('rpttransmittal')
+	def transmittalem
+
+	@ActiveDB('tagabukid')
+	def mainem
+
+	@ProxyMethod
+	public def gettransmittalitem( params ) {
+
+		def items = mainem.getitemfortransmittal()
+		items.each{
+			it.objid = 'TI' + new java.rmi.server.UID();
+			it.transmittalid = params.id
+			saveItem(it)
+			println it.objid + "SAVED"
+		}
+		return "done"
+	}
+
+	@ProxyMethod
+	public void saveItem( item ) {
+		transmittalem.save(item, 'item')
+	}
+
+
 	@ProxyMethod
 	public def test(def o) {
 
