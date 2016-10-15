@@ -170,7 +170,7 @@ INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
 INNER JOIN user_organization ug2 ON ug2.`objid` = dt.`actor_objid`
 LEFT JOIN document_link dl ON dl.`taskid` = dt.`objid`
 WHERE ${filter}
-AND (dt.enddate IS NULL OR dt.state IN ('archive','attached','linked'))
+AND (dt.enddate IS NULL OR dt.state IN ('archived','attached','linked'))
 ORDER BY d.title
 
 [getDocumentbyBarcode]
@@ -223,7 +223,7 @@ INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
 LEFT JOIN document_link dl ON dl.`taskid` = dt.`objid`
 WHERE ${filter}
-AND (dt.enddate IS NULL OR dt.state IN ('archive','attached','linked'))
+AND (dt.enddate IS NULL OR dt.state IN ('archived','attached','linked'))
 ORDER BY d.title, dt.startdate
 
 [getDocumentChild]
@@ -276,7 +276,7 @@ INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
 LEFT JOIN document_link dl ON dl.`taskid` = dt.`objid`
 WHERE ${filter}
-AND dt.state IN ('archive','attached','linked')
+AND dt.state IN ('archived','attached','linked')
 ORDER BY d.title, dt.startdate
 
 [updateparent]
@@ -296,7 +296,7 @@ SELECT COUNT(*) AS total,
        SUM(IF(dt.state = "outgoing",1,0)) AS outgoing,
        SUM(IF(dt.state = "enroute",1,0)) AS enroute,
        SUM(IF(dt.state = "processing",1,0)) AS processing,
-       SUM(IF(dt.state = "archive",1,0)) AS archive,
+       SUM(IF(dt.state = "archived",1,0)) AS archived,
        SUM(IF(dt.state = "attached",1,0)) AS attached
 	
 FROM document d
@@ -305,7 +305,7 @@ INNER JOIN document_task dt ON dt.`refid` = d.`objid`
 INNER JOIN document_task_org dto ON dto.`taskid` = dt.`objid`
 INNER JOIN document_type dtyp ON dtyp.`objid` = d.`documenttypeid`
 WHERE (dt.enddate IS NULL 
-OR dt.state IN ('attached','archive','closed')) 
+OR dt.state IN ('attached','archived','closed')) 
 AND dto.orgid = $P{userorgid}
 ORDER BY d.title, dt.startdate
 

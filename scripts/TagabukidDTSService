@@ -278,7 +278,7 @@ public class TagabukidDTSService  {
 							OR d.description LIKE $P{searchtext}) AND dt.state IN ('idle','processing','linked') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL 
 							'''
     	}
-    	else if (params.mode.matches('send|archive')){
+    	else if (params.mode.matches('send|archived')){
 	    	params.filter = ''' (d.din LIKE $P{searchtext}
 							OR d.title LIKE $P{searchtext}
 							OR d.description LIKE $P{searchtext}) AND dt.state IN ('idle','outgoing','processing','linked') AND dto.orgid = $P{userorgid} AND dt.enddate IS NULL 
@@ -442,8 +442,8 @@ public class TagabukidDTSService  {
 				case "receive":
 					state = 'processing'
 					break;	
-				case "archive":
-					state = 'archive'
+				case "archived":
+					state = 'archived'
 					doc.message = "Cabinet Code:" + o.cabinetcode +" , Folder Code: " +  o.foldercode
 					org.organizationid = o.org.OrgUnitId.toString()
 					org.orgname = o.org.name
@@ -462,7 +462,7 @@ public class TagabukidDTSService  {
 			rgt			   : o.rgt,
 			state          : state,
 			startdate      : dtSvc.serverDate,
-			enddate		   : (state.matches('archive|closed') ?  dtSvc.serverDate : null),
+			enddate		   : (state.matches('archived|closed') ?  dtSvc.serverDate : null),
 			assignee_objid : (o.assignee == null ?  env.USERID : o.assignee.objid),
 			assignee_name  : (o.assignee == null ?  env.FULLNAME : o.assignee.name),
 			assignee_title : (o.assignee == null ?  env.JOBTITLE : o.assignee.jobtitle),
@@ -691,8 +691,8 @@ public class TagabukidDTSService  {
 				case "receive":
 					state = 'processing'
 					break;	
-				case "archive":
-					state = 'archive'
+				case "archived":
+					state = 'archived'
 					break;	
 				default:
 					break;
@@ -706,7 +706,7 @@ public class TagabukidDTSService  {
 			rgt			   : o.task.rgt,
 			state          : state,
 			startdate      : dtSvc.serverDate,
-			enddate		   : (state.matches('archive|closed') ?  dtSvc.serverDate : null),
+			enddate		   : (state.matches('archived|closed') ?  dtSvc.serverDate : null),
 			assignee_objid : env.USERID,
 			assignee_name  : env.FULLNAME,
 			assignee_title : env.JOBTITLE,

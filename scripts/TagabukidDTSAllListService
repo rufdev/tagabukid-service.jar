@@ -24,7 +24,7 @@ class TagabukidDTSAllListService extends ActiveCrudListService  {
 		nodes << [name:'outgoing',  caption: 'Outgoing', leaf:true, allowSearch:true, folder:true];
 		nodes << [name:'enroute', caption: 'En Route', leaf:true, allowSearch:true, folder:true];
 		nodes << [name:'processing', caption: 'Processing', leaf:true, allowSearch:true, folder:true];
-		nodes << [name:'archive', caption: 'Archived/Closed/Attached', leaf:true, allowSearch:true, folder:true];
+		nodes << [name:'archived', caption: 'Archived/Closed/Attached', leaf:true, allowSearch:true, folder:true];
 		return nodes;
 	}	
 
@@ -59,7 +59,7 @@ class TagabukidDTSAllListService extends ActiveCrudListService  {
 			case 'search':
 				if( !o.searchtext || o.searchtext == '%' ) o.searchtext = "?";
 				else{
-				o.filter += ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archive','closed'))''';
+				o.filter += ''' AND (dt.enddate IS NULL OR dt.state IN ('attached','archived','closed'))''';
 				}
 				break;
 				
@@ -84,9 +84,9 @@ class TagabukidDTSAllListService extends ActiveCrudListService  {
 				o.filter +=  ''' AND dt.state IN ('processing','linked') AND dt.enddate IS NULL ''';
 				break;
 
-			case 'archive':
-				o.state = 'archive';
-				o.filter += ''' AND dt.state IN ('attached','archive','closed') ''';
+			case 'archived':
+				o.state = 'archived';
+				o.filter += ''' AND dt.state IN ('attached','archived','closed') ''';
 				break;
 
 			default:
